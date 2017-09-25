@@ -12,5 +12,9 @@ while True:
     print(len(data))
     message.send_msg(NORMAL, data + "\n", sock)
 
+    msgtype, text = message.receive_msg_from(sock)
+    message.print_message(msgtype, text)
+
+
 
 

@@ -1,5 +1,5 @@
 import socket
-import message
+from internals import message
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(('localhost', 8080))

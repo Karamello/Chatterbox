@@ -1,5 +1,5 @@
 import socket
-import message
+from internals import message
 
 host = ''
 port = 8080

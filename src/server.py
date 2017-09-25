@@ -11,13 +11,17 @@ sock.bind((host, port))
 sock.setblocking(0)
 sock.listen(1)
 
-sockets = [sock]
+sockets = []
 
 NORMAL = 0
 
+def broadcast(msgtype, msgtext, sockets):
+    for s in sockets:
+        message.send_msg(msgtype, msgtext + "\n", s)
+
 
 while True:
-    read, _, _ = select.select(sockets, [], [])
+    read, _, _ = select.select(sockets + [sock] , [], [])
 
     for s in read:
         if s == sock:
@@ -28,6 +32,6 @@ while True:
         else:
             msgtype, data = message.receive_msg_from(s)
             message.print_message(msgtype, data)
-            message.send_msg(NORMAL, data + "\n", s)
+            broadcast(msgtype, data, sockets)
 
 

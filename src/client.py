@@ -36,7 +36,9 @@ class Client:
             for src in in_stream:
                 # If input stream is stdin, send message
                 if src == sys.stdin:
-                    message.send_msg(message.NORMAL, sys.stdin.readline(), self.sock)
+                    msg = sys.stdin.readline()
+                    message.send_msg(message.NORMAL, msg, self.sock)
+                    self.pretty_print_message("You: " + msg.strip())
                 # Else it's the socket, so read it and display it
                 else:
                     try:

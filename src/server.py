@@ -29,8 +29,9 @@ class Server:
             f.write("\n")
 
     # Broadcast message to all clients
-    def broadcast(self, msg_type, msg_text):
-        for sock in self.client_sockets:
+    def broadcast(self, msg_type, msg_text, client_socket=None):
+        broad_range = [x for x in self.client_sockets if x != client_socket]
+        for sock in broad_range:
             message.send_msg(msg_type, msg_text + "\n", sock)
 
     # Add messages to log as we wish
@@ -79,7 +80,7 @@ class Server:
                 self.user_login(data, pwd, client_socket)
         elif msg_type == message.NORMAL:
             out_message = self.client_users[client_socket] + ": " + data
-            self.broadcast(message.NORMAL, out_message)
+            self.broadcast(message.NORMAL, out_message, client_socket)
             self.log_message("CLIENT", out_message)
 
     def run(self):

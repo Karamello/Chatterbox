@@ -2,32 +2,48 @@ import socket
 import select
 from internals import message
 
+# Server variables
 host = ''
 port = 8080
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-sock.bind((host, port))
-sock.setblocking(0)
-sock.listen(1)
+# Create socket
+server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-sockets = [sock]
+# Allow socket to reuse address
+server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+# Bind socket and listen for incoming connections
+server_sock.bind((host, port))
+server_sock.setblocking(0)
+server_sock.listen(1)
+
+# Maintain list of client sockets only
+client_sockets = []
+
+# Message types
 NORMAL = 0
 
 
+# Broadcast message to all clients
+def broadcast(msg_type, msg_text, sockets):
+    for sock in sockets:
+        message.send_msg(msg_type, msg_text + "\n", sock)
+
+
 while True:
-    read, _, _ = select.select(sockets, [], [])
+    read, _, _ = select.select(client_sockets + [server_sock], [], [])
 
     for s in read:
-        if s == sock:
-            conn, addr = sock.accept()
+        # If the socket to read is the server socket, new connection ready
+        if s == server_sock:
+            conn, addr = server_sock.accept()
             print("Connceted to {}".format(addr))
-            sockets.append(conn)
+            client_sockets.append(conn)
             conn.setblocking(0)
+        # Else, a client has data - broadcast it
         else:
-            msgtype, data = message.receive_msg_from(s)
-            message.print_message(msgtype, data)
-            message.send_msg(NORMAL, data + "\n", s)
+            msg_type, data = message.receive_msg_from(s)
+            message.print_message(msg_type, data)
+            broadcast(msg_type, data, client_sockets)
 
 

@@ -15,8 +15,12 @@ sock.connect((host, port))
 
 # Get username and send to server
 username = raw_input("Enter username: ")
+pwd = raw_input("Enter password: ")
+
 username = username.strip() + "\n"
+pwd = pwd.strip() + "\n"
 message.send_msg(message.USER, username, sock)
+message.send_msg(message.PASS, pwd, sock)
 
 # Create list on input streams, i.e stdin and the socket
 reading = [sock, sys.stdin]

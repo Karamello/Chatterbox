@@ -8,8 +8,9 @@ import struct
 # Message types enum like
 NORMAL = 0
 USER = 1
+PASS = 2
 
-TYPES = ["NORMAL", "USER"]
+TYPES = ["NORMAL", "USER", "PASS"]
 HEADER_LENGTH = 8
 
 

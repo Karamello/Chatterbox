@@ -52,20 +52,40 @@ def close_connection(client_socket, sockets):
     client_sockets.remove(client_socket)
     if client_socket in client_users:
         broadcast(message.NORMAL, "User {} left the chat".format(client_users[client_socket]), sockets)
+        log_message("SERVER", "User {} left the chat".format(client_users[client_socket]))
         del client_users[client_socket]
     client_socket.close()
+
+
+def authenticate_user(username, password):
+    with open("users.txt", "r") as f:
+        for line in f:
+            user, pwd = line.strip().split(" ")
+            if username == user and pwd == password:
+                return True
+
+
+def user_login(user, pwd, client_socket, sockets):
+    if user in client_users.values():
+        close_connection(client_socket, sockets)
+        log_message("SERVER", "User {} is already logged in".format(user))
+    else:
+        if authenticate_user(user, pwd):
+            client_users[client_socket] = user
+            log_message("SERVER", "User {} entered the chat".format(user))
+            broadcast(message.NORMAL, "User {} entered the chat".format(user), sockets)
+        else:
+            log_message("SERVER", "Failed login for user {}".format(user))
+            close_connection(client_socket, sockets)
 
 
 # Handles messages passed to the server and takes appropriate action
 def handle_message(client_socket, sockets):
     msg_type, data = message.receive_msg_from(client_socket)
     if msg_type == message.USER:
-        if data in client_users.values():
-            close_connection(client_socket, sockets)
-            return
-        client_users[client_socket] = data
-        log_message("SERVER", "User {} entered the chat".format(data))
-        broadcast(message.NORMAL, "User {} entered the chat".format(data), sockets)
+        msg_type, pwd = message.receive_msg_from(client_socket)
+        if msg_type == message.PASS:
+            user_login(data, pwd, client_socket, sockets)
     elif msg_type == message.NORMAL:
         out_message = client_users[client_socket] + ": " + data
         broadcast(message.NORMAL, out_message, sockets)

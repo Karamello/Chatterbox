@@ -1,6 +1,7 @@
 import socket
 import select
 from internals import message
+import time
 
 # Server variables
 host = ''
@@ -23,6 +24,11 @@ client_sockets = []
 # Message types
 NORMAL = 0
 
+# Create new file to log messages sent to and from server
+with open("serverlog.txt", "w") as f:
+    f.write("[SERVER] Logging started at " + time.strftime("%H:%M:%S"))
+    f.write("\n")
+
 
 # Broadcast message to all clients
 def broadcast(msg_type, msg_text, sockets):
@@ -43,6 +49,10 @@ while True:
         # Else, a client has data - broadcast it
         else:
             msg_type, data = message.receive_msg_from(s)
+            with open("serverlog.txt", "a") as f:
+                log_time = time.strftime("%H:%M:%S")
+                f.write("[CLIENT] " + log_time + ": " + data)
+                f.write("\n")
             message.print_message(msg_type, data)
             broadcast(msg_type, data, client_sockets)
 

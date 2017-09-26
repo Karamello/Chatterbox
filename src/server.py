@@ -8,8 +8,10 @@ port = 8080
 
 # Create socket
 server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 # Allow socket to reuse address
 server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
 # Bind socket and listen for incoming connections
 server_sock.bind((host, port))
 server_sock.setblocking(0)

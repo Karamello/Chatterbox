@@ -5,7 +5,11 @@ import struct
 #   4 bytes unsigned length
 #   Message data
 
-TYPES = ["NORMAL"]
+# Message types enum like
+NORMAL = 0
+USER = 1
+
+TYPES = ["NORMAL", "USER"]
 HEADER_LENGTH = 8
 
 

@@ -1,7 +1,8 @@
 import socket
 import select
-from internals import message
 import time
+from internals import message
+
 
 # Server variables
 host = ''

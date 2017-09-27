@@ -81,6 +81,7 @@ class Server:
         match = re.match(r"^/join\s(\w+)", data)
         user = self.client_users[client_socket]
         if match:
+            self.log_message("CLIENT", "User {} left room {}".format(user.name, user.chatroom))
             self.chatrooms[user.chatroom].remove_user(user)
             room = match.group(1)
             if room in self.chatrooms:
@@ -90,6 +91,7 @@ class Server:
                 new_room.add_user(user)
                 self.chatrooms[room] = new_room
             self.chatrooms[room].broadcast("User {} has entered the room #{}".format(user.name, room))
+            self.log_message("CLIENT", "User {} joined room {}".format(user.name, room))
 
     # Handles messages passed to the server and takes appropriate action
     def handle_message(self, client_socket):

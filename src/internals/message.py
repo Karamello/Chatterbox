@@ -9,8 +9,9 @@ import struct
 NORMAL = 0
 USER = 1
 PASS = 2
+JOIN = 3
 
-TYPES = ["NORMAL", "USER", "PASS"]
+TYPES = ["NORMAL", "USER", "PASS", "JOIN"]
 HEADER_LENGTH = 8
 
 

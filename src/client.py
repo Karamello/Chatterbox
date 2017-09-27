@@ -2,52 +2,61 @@ import socket
 import sys
 import select
 import time
+import re
 from internals import message
 
 
-# Server variables
-host = ''
-port = 8080
+class Client:
 
-# Create and connect socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect((host, port))
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.sock = self.init_socket()
+        self.streams = [self.sock, sys.stdin]
+        self.username = raw_input("Enter username: ").strip() + "\n"
+        self.pwd = raw_input("Enter password: ").strip() + "\n"
 
-# Get username and send to server
-username = raw_input("Enter username: ")
-pwd = raw_input("Enter password: ")
+    def init_socket(self):
+        # Create and connect socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((self.host, self.port))
+        return sock
 
-username = username.strip() + "\n"
-pwd = pwd.strip() + "\n"
-message.send_msg(message.USER, username, sock)
-message.send_msg(message.PASS, pwd, sock)
+    def verify_login(self):
+        message.send_msg(message.USER, self.username, self.sock)
+        message.send_msg(message.PASS, self.pwd, self.sock)
 
-# Create list on input streams, i.e stdin and the socket
-reading = [sock, sys.stdin]
+    def pretty_print_message(self, message):
+        msg_time = time.strftime("%H:%M:%S")
+        print msg_time, message
 
-
-def pretty_print_message(message):
-    msg_time = time.strftime("%H:%M:%S")
-    print msg_time, message
-
-
-while True:
-    in_stream, _, _ = select.select(reading, [], [], 1)
-
-    for src in in_stream:
-        # If input stream is stdin, send message
-        if src == sys.stdin:
-            message.send_msg(message.NORMAL, sys.stdin.readline(), sock)
-        # Else it's the socket, so read it and display it
+    def parse_input(self, user_input):
+        if re.search(r"^/join", user_input):
+            message.send_msg(message.JOIN, user_input, self.sock)
         else:
-            try:
-                msg_type, text = message.receive_msg_from(sock)
-            except RuntimeError:
-                pretty_print_message("Lost connection to the server")
-                sys.exit(0)
-            pretty_print_message(text)
+            message.send_msg(message.NORMAL, user_input, self.sock)
+            self.pretty_print_message("You: " + user_input.strip())
+
+    def run(self):
+        self.verify_login()
+        while True:
+            in_stream, out_stream, _ = select.select(self.streams, [], [], 1)
+            for src in in_stream:
+                # If input stream is stdin, send message
+                if src == sys.stdin:
+                    msg = sys.stdin.readline()
+                    self.parse_input(msg)
+                # Else it's the socket, so read it and display it
+                else:
+                    try:
+                        msg_type, text = message.receive_msg_from(self.sock)
+                    except RuntimeError:
+                        self.pretty_print_message("Lost connection to the server")
+                        sys.exit(0)
+                    self.pretty_print_message(text)
 
 
-
+client = Client('', 8080)
+client.run()
 
 

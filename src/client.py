@@ -52,7 +52,6 @@ class Client:
         elif msg_type == message.COMMAND:
             self.pretty_print_message(text)
 
-
     def run(self):
         self.verify_login()
         while True:

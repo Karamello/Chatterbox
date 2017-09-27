@@ -7,8 +7,6 @@ from internals import message, user as u, chatroom
 
 class Server:
 
-
-
     def __init__(self, port):
         self.host = ''
         self.port = port
@@ -130,7 +128,6 @@ class Server:
             message.send_msg(message.COMMAND, "Server uptime is {} seconds\n".format(up), client_socket)
         elif command == 'listrooms':
             message.send_msg(message.COMMAND, "Chatrooms available: {}\n".format(self.list_chatrooms()), client_socket)
-
 
     # Handles messages passed to the server and takes appropriate action
     def handle_message(self, client_socket):

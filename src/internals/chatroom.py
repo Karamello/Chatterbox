@@ -21,6 +21,12 @@ class Chatroom:
         for user in broad_range:
             message.send_msg(message.NORMAL, msg + "\n", user.sock)
 
+    def contains_user(self, user):
+        for u in self.users:
+            if u.name == user:
+                return u
+        return None
+
     def broadcast(self, msg):
         for user in self.users:
             message.send_msg(message.NORMAL, msg + "\n", user.sock)

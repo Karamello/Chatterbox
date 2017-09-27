@@ -1,7 +1,8 @@
-import socket
 import select
+import socket
 import time
-from internals import message
+
+from internals import message, user as u, chatroom
 
 
 class Server:
@@ -13,6 +14,7 @@ class Server:
         self.client_sockets = []
         self.client_users = {}
         self.init_logging()
+        self.chatrooms = {}
 
     def init_socket(self, host, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -28,7 +30,7 @@ class Server:
             f.write("[SERVER] Server started at " + time.strftime("%d/%m/%Y %H:%M:%S"))
             f.write("\n")
 
-    # Broadcast message to all clients
+    # Server-wide broadcast message to clients
     def broadcast(self, msg_type, msg_text, client_socket=None):
         broad_range = [x for x in self.client_sockets if x != client_socket]
         for sock in broad_range:
@@ -46,8 +48,10 @@ class Server:
         print("Lost connection to client")
         self.client_sockets.remove(client_socket)
         if client_socket in self.client_users:
-            self.broadcast(message.NORMAL, "User {} left the chat".format(self.client_users[client_socket]))
-            self.log_message("SERVER", "User {} left the chat".format(self.client_users[client_socket]))
+            user = self.client_users[client_socket]
+            self.broadcast(message.NORMAL, "User {} left the chat".format(user.name))
+            self.log_message("SERVER", "User {} left the chat".format(user.name))
+            self.chatrooms[user.chatroom].remove_user(user)
             del self.client_users[client_socket]
         client_socket.close()
 
@@ -64,7 +68,9 @@ class Server:
             self.log_message("SERVER", "User {} is already logged in".format(user))
         else:
             if self.authenticate_user(user, pwd):
-                self.client_users[client_socket] = user
+                new_user = u.User(user, False, client_socket)
+                self.chatrooms['default'].add_user(new_user)
+                self.client_users[client_socket] = new_user
                 self.log_message("SERVER", "User {} entered the chat".format(user))
                 self.broadcast(message.NORMAL, "User {} entered the chat".format(user))
             else:
@@ -79,11 +85,14 @@ class Server:
             if msg_type == message.PASS:
                 self.user_login(data, pwd, client_socket)
         elif msg_type == message.NORMAL:
-            out_message = self.client_users[client_socket] + ": " + data
-            self.broadcast(message.NORMAL, out_message, client_socket)
-            self.log_message("CLIENT", out_message)
+            user = self.client_users[client_socket]
+            chat = self.chatrooms[user.chatroom]
+            out_message = user.name + ": " + data
+            chat.send_message(out_message, client_socket)
+            self.log_message("CLIENT in " + chat.name, out_message)
 
     def run(self):
+        self.chatrooms['default'] = chatroom.Chatroom('default')
         while True:
             read, _, _ = select.select(self.client_sockets + [self.server_sock], [], [])
 

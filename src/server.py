@@ -93,6 +93,25 @@ class Server:
             self.chatrooms[room].broadcast("User {} has entered the room #{}".format(user.name, room))
             self.log_message("CLIENT", "User {} joined room {}".format(user.name, room))
 
+    def direct_message(self, data, client_socket):
+        match = re.match(r"^/direct\s(\w+)\s(.*)", data)
+        user = self.client_users[client_socket]
+        if match:
+            target = match.group(1)
+            msg = match.group(2)
+            out_message = "{} <direct>: {}".format(user.name, msg)
+            send_to = self.find_socket_by_name(target)
+            if send_to:
+                message.send_msg(message.DIRECT, out_message + "\n", send_to)
+            else:
+                message.send_msg(message.NORMAL, "User {} is not online\n".format(target), client_socket)
+
+    def find_socket_by_name(self, name):
+        for chat in self.chatrooms:
+            match = self.chatrooms[chat].contains_user(name)
+            if match:
+                return match.sock
+
     # Handles messages passed to the server and takes appropriate action
     def handle_message(self, client_socket):
         msg_type, data = message.receive_msg_from(client_socket)
@@ -103,11 +122,13 @@ class Server:
         elif msg_type == message.NORMAL:
             user = self.client_users[client_socket]
             chat = self.chatrooms[user.chatroom]
-            out_message = user.name + ": " + data
+            out_message = "{}: {}".format(user.name, data)
             chat.send_message(out_message, client_socket)
             self.log_message("CLIENT in " + chat.name, out_message)
         elif msg_type == message.JOIN:
             self.join_chatroom(data, client_socket)
+        elif msg_type == message.DIRECT:
+            self.direct_message(data, client_socket)
 
     def run(self):
         self.chatrooms['default'] = chatroom.Chatroom('default')

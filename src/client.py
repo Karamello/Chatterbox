@@ -2,6 +2,7 @@ import socket
 import sys
 import select
 import time
+import re
 from internals import message
 
 
@@ -29,6 +30,13 @@ class Client:
         msg_time = time.strftime("%H:%M:%S")
         print msg_time, message
 
+    def parse_input(self, user_input):
+        if re.search(r"^/join", user_input):
+            message.send_msg(message.JOIN, user_input, self.sock)
+        else:
+            message.send_msg(message.NORMAL, user_input, self.sock)
+            self.pretty_print_message("You: " + user_input.strip())
+
     def run(self):
         self.verify_login()
         while True:
@@ -37,8 +45,7 @@ class Client:
                 # If input stream is stdin, send message
                 if src == sys.stdin:
                     msg = sys.stdin.readline()
-                    message.send_msg(message.NORMAL, msg, self.sock)
-                    self.pretty_print_message("You: " + msg.strip())
+                    self.parse_input(msg)
                 # Else it's the socket, so read it and display it
                 else:
                     try:

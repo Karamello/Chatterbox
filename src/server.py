@@ -1,7 +1,7 @@
 import select
 import socket
 import time
-
+import re
 from internals import message, user as u, chatroom
 
 
@@ -77,6 +77,20 @@ class Server:
                 self.log_message("SERVER", "Failed login for user {}".format(user))
                 self.close_connection(client_socket)
 
+    def join_chatroom(self, data, client_socket):
+        match = re.match(r"^/join\s(\w+)", data)
+        user = self.client_users[client_socket]
+        if match:
+            self.chatrooms[user.chatroom].remove_user(user)
+            room = match.group(1)
+            if room in self.chatrooms:
+                self.chatrooms[room].add_user(user)
+            else:
+                new_room = chatroom.Chatroom(room)
+                new_room.add_user(user)
+                self.chatrooms[room] = new_room
+            self.chatrooms[room].broadcast("User {} has entered the room #{}".format(user.name, room))
+
     # Handles messages passed to the server and takes appropriate action
     def handle_message(self, client_socket):
         msg_type, data = message.receive_msg_from(client_socket)
@@ -90,6 +104,8 @@ class Server:
             out_message = user.name + ": " + data
             chat.send_message(out_message, client_socket)
             self.log_message("CLIENT in " + chat.name, out_message)
+        elif msg_type == message.JOIN:
+            self.join_chatroom(data, client_socket)
 
     def run(self):
         self.chatrooms['default'] = chatroom.Chatroom('default')

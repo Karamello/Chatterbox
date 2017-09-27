@@ -12,9 +12,15 @@ class Chatroom:
 
     def remove_user(self, user):
         self.users.remove(user)
+        if self.name != 'default':
+            self.broadcast("User {} has left the room".format(user.name))
         user.chatroom = 'default'
 
     def send_message(self, msg, client_socket):
         broad_range = [x for x in self.users if x.sock != client_socket]
         for user in broad_range:
+            message.send_msg(message.NORMAL, msg + "\n", user.sock)
+
+    def broadcast(self, msg):
+        for user in self.users:
             message.send_msg(message.NORMAL, msg + "\n", user.sock)

@@ -7,6 +7,8 @@ from internals import message, user as u, chatroom
 
 class Server:
 
+
+
     def __init__(self, port):
         self.host = ''
         self.port = port
@@ -15,6 +17,7 @@ class Server:
         self.client_users = {}
         self.init_logging()
         self.chatrooms = {}
+        self.start_time = time.time()
 
     def init_socket(self, host, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -81,8 +84,11 @@ class Server:
         match = re.match(r"^/join\s(\w+)", data)
         user = self.client_users[client_socket]
         if match:
-            self.log_message("CLIENT", "User {} left room {}".format(user.name, user.chatroom))
-            self.chatrooms[user.chatroom].remove_user(user)
+            chat = user.chatroom
+            self.log_message("CLIENT", "User {} left room {}".format(user.name, chat))
+            self.chatrooms[chat].remove_user(user)
+            if self.chatrooms[chat].is_empty():
+                del self.chatrooms[chat]
             room = match.group(1)
             if room in self.chatrooms:
                 self.chatrooms[room].add_user(user)
@@ -112,6 +118,20 @@ class Server:
             if match:
                 return match.sock
 
+    def parse_command(self, data, client_socket):
+        match = re.match(r"^/(\w+)", data)
+        if match:
+            command = match.group(1)
+            self.exec_command(command, client_socket)
+
+    def exec_command(self, command, client_socket):
+        if command == 'uptime':
+            up = time.strftime("%H:%M:%S", time.gmtime(self.uptime()))
+            message.send_msg(message.COMMAND, "Server uptime is {} seconds\n".format(up), client_socket)
+        elif command == 'listrooms':
+            message.send_msg(message.COMMAND, "Chatrooms available: {}\n".format(self.list_chatrooms()), client_socket)
+
+
     # Handles messages passed to the server and takes appropriate action
     def handle_message(self, client_socket):
         msg_type, data = message.receive_msg_from(client_socket)
@@ -129,6 +149,18 @@ class Server:
             self.join_chatroom(data, client_socket)
         elif msg_type == message.DIRECT:
             self.direct_message(data, client_socket)
+        elif msg_type == message.COMMAND:
+            self.parse_command(data, client_socket)
+
+    def uptime(self):
+        return time.time() - self.start_time
+
+    def list_chatrooms(self):
+        temp = []
+        for chat in self.chatrooms.keys():
+            num_users = self.chatrooms[chat].users_in_chat()
+            temp.append("{}({})".format(chat, num_users))
+        return ", ".join(temp)
 
     def run(self):
         self.chatrooms['default'] = chatroom.Chatroom('default')
@@ -150,5 +182,6 @@ class Server:
                     except RuntimeError:
                         self.close_connection(s)
 
-server = Server(8080)
-server.run()
+if __name__ == '__main__':
+    server = Server(8080)
+    server.run()

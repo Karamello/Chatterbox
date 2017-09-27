@@ -30,3 +30,12 @@ class Chatroom:
     def broadcast(self, msg):
         for user in self.users:
             message.send_msg(message.NORMAL, msg + "\n", user.sock)
+
+    def is_empty(self):
+        if self.name == 'default':
+            return False
+        else:
+            return len(self.users) == 0
+
+    def users_in_chat(self):
+        return len(self.users)

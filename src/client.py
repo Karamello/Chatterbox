@@ -37,6 +37,8 @@ class Client:
         elif direct_match:
             message.send_msg(message.DIRECT, user_input, self.sock)
             self.pretty_print_message("You <direct to {}>: {}".format(direct_match.group(1), direct_match.group(2)))
+        elif re.search(r"^/", user_input):
+            message.send_msg(message.COMMAND, user_input, self.sock)
         else:
             message.send_msg(message.NORMAL, user_input, self.sock)
             self.pretty_print_message("You: " + user_input.strip())
@@ -46,6 +48,8 @@ class Client:
         if msg_type == message.DIRECT:
             self.pretty_print_message(text)
         elif msg_type == message.NORMAL:
+            self.pretty_print_message(text)
+        elif msg_type == message.COMMAND:
             self.pretty_print_message(text)
 
 
@@ -66,8 +70,8 @@ class Client:
                         self.pretty_print_message("Lost connection to the server")
                         sys.exit(0)
 
-
-client = Client('', 8080)
-client.run()
+if __name__ == '__main__':
+    client = Client('', 8080)
+    client.run()
 
 

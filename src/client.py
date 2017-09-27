@@ -31,12 +31,12 @@ class Client:
         print msg_time, message
 
     def parse_input(self, user_input):
-        match = re.match(r"^/direct\s(\w+)\s(.*)", user_input)
+        direct_match = re.match(r"^/direct\s(\w+)\s(.*)", user_input)
         if re.search(r"^/join", user_input):
             message.send_msg(message.JOIN, user_input, self.sock)
-        elif match:
+        elif direct_match:
             message.send_msg(message.DIRECT, user_input, self.sock)
-            self.pretty_print_message("You <direct to {}>: {}".format(match.group(1), match.group(2)))
+            self.pretty_print_message("You <direct to {}>: {}".format(direct_match.group(1), direct_match.group(2)))
         else:
             message.send_msg(message.NORMAL, user_input, self.sock)
             self.pretty_print_message("You: " + user_input.strip())

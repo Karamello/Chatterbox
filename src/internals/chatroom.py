@@ -10,10 +10,11 @@ class Chatroom:
         self.users.append(user)
         user.chatroom = self.name
 
-    def remove_user(self, user):
+    def remove_user(self, user, kick=False):
         self.users.remove(user)
         if self.name != 'default':
-            self.broadcast("User {} has left the room".format(user.name))
+            text = "User {} has left the room".format(user.name) if not kick else "User {} was kicked from the room".format(user.name)
+            self.broadcast(text)
         user.chatroom = 'default'
 
     def send_message(self, msg, client_socket):
@@ -39,3 +40,8 @@ class Chatroom:
 
     def users_in_chat(self):
         return len(self.users)
+
+    def get_user(self, name):
+        for user in self.users:
+            if user.name == name:
+                return user

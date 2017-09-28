@@ -268,8 +268,7 @@ class Server:
                     connstream = ssl.wrap_socket(conn,
                                                  server_side=True,
                                                  certfile="certs/cert.pem",
-                                                 keyfile="certs/cert.pem",
-                                                 ssl_version=ssl.PROTOCOL_SSLv2)
+                                                 keyfile="certs/cert.pem")
                     self.log_message("SERVER", "Accepted connection from {}".format(addr))
                     print("Connceted to {}".format(addr))
                     self.client_sockets.append(connstream)
@@ -278,7 +277,7 @@ class Server:
                 else:
                     try:
                         self.handle_message(s)
-                    except ssl.SSLZeroReturnError:
+                    except (RuntimeError, ssl.SSLZeroReturnError):
                         self.close_connection(s)
 
 if __name__ == '__main__':

@@ -23,7 +23,7 @@ class Client:
         # Create and connect socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sslsock = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_SSLv2)
+            sslsock = ssl.wrap_socket(sock)
             sslsock.connect((self.host, self.port))
         except socket.error:
             print("Cannot contact server. Is the server online?")
@@ -125,7 +125,8 @@ class Client:
                 else:
                     try:
                         self.handle_message()
-                    except RuntimeError:
+                    except (RuntimeError, ssl.SSLZeroReturnError):
+                        self.sock.close()
                         self.pretty_print_message("Lost connection to the server")
                         sys.exit(0)
 

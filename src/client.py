@@ -5,6 +5,7 @@ import os
 import time
 import hashlib
 import re
+import ssl
 from internals import message
 
 
@@ -22,11 +23,12 @@ class Client:
         # Create and connect socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.connect((self.host, self.port))
-        except socket.error as e:
+            sslsock = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_SSLv2)
+            sslsock.connect((self.host, self.port))
+        except socket.error:
             print("Cannot contact server. Is the server online?")
             sys.exit()
-        return sock
+        return sslsock
 
     def verify_login(self, text=""):
         self.draw_ui(text if text else "Login to Chatterbox")

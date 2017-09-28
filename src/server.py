@@ -2,6 +2,7 @@ import select
 import socket
 import time
 import re
+import ssl
 from internals import message, user as u, chatroom
 
 
@@ -264,15 +265,20 @@ class Server:
                 # If the socket to read is the server socket, new connection ready
                 if s == self.server_sock:
                     conn, addr = self.server_sock.accept()
+                    connstream = ssl.wrap_socket(conn,
+                                                 server_side=True,
+                                                 certfile="certs/cert.pem",
+                                                 keyfile="certs/cert.pem",
+                                                 ssl_version=ssl.PROTOCOL_SSLv2)
                     self.log_message("SERVER", "Accepted connection from {}".format(addr))
                     print("Connceted to {}".format(addr))
-                    self.client_sockets.append(conn)
-                    conn.setblocking(0)
+                    self.client_sockets.append(connstream)
+                    connstream.setblocking(0)
                 # Else, a client has data - broadcast it
                 else:
                     try:
                         self.handle_message(s)
-                    except RuntimeError:
+                    except ssl.SSLZeroReturnError:
                         self.close_connection(s)
 
 if __name__ == '__main__':

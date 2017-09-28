@@ -66,6 +66,13 @@ class Server:
                 if username == user and pwd == password:
                     return True
 
+    def user_is_admin(self, username):
+        with open('admins.txt', 'r') as f:
+            for line in f:
+                if username == line.strip():
+                    return True
+        return False
+
     # Handles logging in a user and adding them to the chat
     def user_login(self, user, pwd, client_socket):
         for log_user in self.client_users.values():
@@ -74,11 +81,11 @@ class Server:
                 self.log_message("SERVER", "User {} is already logged in".format(user))
                 return 0
         if self.authenticate_user(user, pwd):
-            new_user = u.User(user, False, client_socket)
+            new_user = u.User(user, self.user_is_admin(user), client_socket)
             self.chatrooms['default'].add_user(new_user)
             self.client_users[client_socket] = new_user
-            self.log_message("SERVER", "User {} entered the chat".format(user))
-            self.broadcast(message.NORMAL, "User {} entered the chat".format(user))
+            self.log_message("SERVER", "User {} is now online".format(user))
+            self.broadcast(message.NORMAL, "User {} is now online".format(user))
         else:
             message.send_msg(message.REJECT, "Couldn't authenticate user {}\n".format(user), client_socket)
             self.log_message("SERVER", "Failed login for user {}".format(user))
@@ -146,7 +153,10 @@ class Server:
             else:
                 message.send_msg(message.COMMAND, "Users online: {}\n".format(self.list_users()), client_socket)
         elif command == 'help':
-            message.send_msg(message.COMMAND, "Server commands: \n{}\n".format(self.build_help()), client_socket)
+            user = self.client_users[client_socket]
+            message.send_msg(message.COMMAND, "Server commands: \n{}\n".format(self.build_help(user.is_admin)), client_socket)
+        elif command == 'kick':
+            self.kick_user(client_socket, args)
 
     # Registers a new user into our database
     def register_user(self, data, client_socket):
@@ -214,14 +224,36 @@ class Server:
         else:
             return "Chatroom doesn't exist"
 
-    def build_help(self):
-        cmd_str = []
-        cmd_str.append("/uptime - Show server uptime")
+    def build_help(self, admin=False):
+        cmd_str = ["/uptime - Show server uptime"]
         cmd_str.append("/rooms - List available chatrooms and show how many users in each")
         cmd_str.append("/users - List all users online")
         cmd_str.append("/users <chatroom> - List all users in chatroom")
+        cmd_str.append("/quit - Quit the program")
         cmd_str.append("/help - This help dialog")
+        if admin:
+            cmd_str.append("--- ADMIN COMMANDS ---")
+            cmd_str.append("/kick room <user> - Kicks user from room back to default")
+            cmd_str.append("/kick server <user> - Kicks user from server")
         return "\n".join(cmd_str)
+
+    def kick_user(self, client_socket, args):
+        user = self.client_users[client_socket]
+        if user.is_admin:
+            d_parse = re.match(r"^(\w+)\s(\w+)", args)
+            if d_parse:
+                target = self.chatrooms[user.chatroom].get_user(d_parse.group(2))
+                if d_parse.group(1) == 'server':
+                    message.send_msg(message.NORMAL, "You have been kicked from the server\n", target.sock)
+                    self.close_connection(target.sock)
+                    self.chatrooms[user.chatroom].broadcast("User {} was kicked from the server".format(target))
+                    self.log_message("SERVER", "User {} was kicked from the server by {}".format(target, user))
+                else:
+                    message.send_msg(message.NORMAL, "You have been kicked from the room\n", target.sock)
+                    self.chatrooms['default'].add_user(target)
+                    self.chatrooms[user.chatroom].remove_user(target, True)
+                    self.log_message("SERVER", "User {} was kicked from the room by {}".format(target, user))
+
     # Main loop
     def run(self):
         self.chatrooms['default'] = chatroom.Chatroom('default')

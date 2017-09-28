@@ -50,6 +50,9 @@ class Client:
         elif direct_match:
             message.send_msg(message.DIRECT, user_input, self.sock)
             self.pretty_print_message("You <direct to {}>: {}".format(direct_match.group(1), direct_match.group(2)))
+        elif re.search(r"^/quit", user_input):
+            self.sock.close()
+            sys.exit(0)
         elif re.search(r"^/", user_input):
             message.send_msg(message.COMMAND, user_input, self.sock)
         else:

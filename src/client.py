@@ -1,7 +1,9 @@
 import socket
 import sys
 import select
+import os
 import time
+import hashlib
 import re
 from internals import message
 
@@ -13,18 +15,29 @@ class Client:
         self.port = port
         self.sock = self.init_socket()
         self.streams = [self.sock, sys.stdin]
-        self.username = raw_input("Enter username: ").strip() + "\n"
-        self.pwd = raw_input("Enter password: ").strip() + "\n"
+        self.username = ""
 
+    # Initialises client socket
     def init_socket(self):
         # Create and connect socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((self.host, self.port))
+        try:
+            sock.connect((self.host, self.port))
+        except socket.error as e:
+            print("Cannot contact server. Is the server online?")
+            sys.exit()
         return sock
 
-    def verify_login(self):
+    def verify_login(self, text=""):
+        self.draw_ui(text if text else "Login to Chatterbox")
+        self.username = raw_input("Enter username: ").strip() + "\n"
+        pwd = raw_input("Enter password: ").strip()
+        md5_pwd = hashlib.md5(pwd).hexdigest() + "\n"
         message.send_msg(message.USER, self.username, self.sock)
-        message.send_msg(message.PASS, self.pwd, self.sock)
+        message.send_msg(message.PASS, md5_pwd, self.sock)
+        res, text = message.receive_msg_from(self.sock)
+        if res == message.REJECT:
+            self.verify_login(text)
 
     def pretty_print_message(self, message):
         msg_time = time.strftime("%H:%M:%S")
@@ -52,8 +65,51 @@ class Client:
         elif msg_type == message.COMMAND:
             self.pretty_print_message(text)
 
+    def register(self, err=""):
+        if err:
+            self.draw_ui(err)
+        else:
+            self.draw_ui("Registering new user")
+        self.username = raw_input("Enter username: ").strip()
+        pwd = raw_input("Enter password: ").strip()
+        conf_pwd = raw_input("Confirm password: ").strip()
+        while conf_pwd != pwd:
+            print("Passwords don't match!")
+            pwd = raw_input("Enter password: ").strip()
+            conf_pwd = raw_input("Confirm password: ").strip()
+        md5_pwd = hashlib.md5(pwd).hexdigest() + "\n"
+        message.send_msg(message.REGISTER, ":".join([self.username, md5_pwd]), self.sock)
+        msg_type, text = message.receive_msg_from(self.sock)
+
+        if msg_type == message.REJECT:
+            self.register(text)
+        else:
+            self.verify_login("Registration successful. Login to your new account")
+
+    def startup(self):
+        self.draw_ui("Welcome to Chatterbox")
+        print("Would you like to register or sign in?")
+        option = raw_input("/register or /login: ")
+        try:
+            if re.search(r"^/register", option):
+                self.register()
+            else:
+                self.verify_login()
+        except RuntimeError:
+            self.pretty_print_message("Lost connection to the server")
+            sys.exit(0)
+
+
+    def draw_ui(self, title):
+        os.system("clear")
+        print("Chatterbox")
+        print("-" * 30)
+        print(title)
+        print("-" * 30)
+
     def run(self):
-        self.verify_login()
+        self.startup()
+        self.draw_ui("Welcome to Chatterbox, {}!".format(self.username.strip()))
         while True:
             in_stream, out_stream, _ = select.select(self.streams, [], [], 1)
             for src in in_stream:

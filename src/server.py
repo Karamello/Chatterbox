@@ -17,6 +17,7 @@ class Server:
         self.chatrooms = {}
         self.start_time = time.time()
 
+    # Initialises server socket
     def init_socket(self, host, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -25,6 +26,7 @@ class Server:
         sock.listen(1)
         return sock
 
+    # Initialises logging server side
     def init_logging(self):
         # Create new file to log messages sent to and from server
         with open("serverlog.txt", "w") as f:
@@ -56,28 +58,33 @@ class Server:
             del self.client_users[client_socket]
         client_socket.close()
 
+    # Authenticates a user against our registered database
     def authenticate_user(self, username, password):
         with open("users.txt", "r") as f:
             for line in f:
-                user, pwd = line.strip().split(" ")
+                user, pwd = line.strip().split(":")
                 if username == user and pwd == password:
                     return True
 
+    # Handles logging in a user and adding them to the chat
     def user_login(self, user, pwd, client_socket):
-        if user in self.client_users.values():
-            self.close_connection(client_socket)
-            self.log_message("SERVER", "User {} is already logged in".format(user))
+        for log_user in self.client_users.values():
+            if user == log_user.name:
+                message.send_msg(message.REJECT, "User is already logged in\n", client_socket)
+                self.log_message("SERVER", "User {} is already logged in".format(user))
+                return 0
+        if self.authenticate_user(user, pwd):
+            new_user = u.User(user, False, client_socket)
+            self.chatrooms['default'].add_user(new_user)
+            self.client_users[client_socket] = new_user
+            self.log_message("SERVER", "User {} entered the chat".format(user))
+            self.broadcast(message.NORMAL, "User {} entered the chat".format(user))
         else:
-            if self.authenticate_user(user, pwd):
-                new_user = u.User(user, False, client_socket)
-                self.chatrooms['default'].add_user(new_user)
-                self.client_users[client_socket] = new_user
-                self.log_message("SERVER", "User {} entered the chat".format(user))
-                self.broadcast(message.NORMAL, "User {} entered the chat".format(user))
-            else:
-                self.log_message("SERVER", "Failed login for user {}".format(user))
-                self.close_connection(client_socket)
+            message.send_msg(message.REJECT, "Couldn't authenticate user {}\n".format(user), client_socket)
+            self.log_message("SERVER", "Failed login for user {}".format(user))
 
+
+    # Joins a user to a chatroom. Creates chatroom if doesn't exist and deletes if empty.
     def join_chatroom(self, data, client_socket):
         match = re.match(r"^/join\s(\w+)", data)
         user = self.client_users[client_socket]
@@ -97,6 +104,7 @@ class Server:
             self.chatrooms[room].broadcast("User {} has entered the room #{}".format(user.name, room))
             self.log_message("CLIENT", "User {} joined room {}".format(user.name, room))
 
+    # Handles direct messaging between users across chatrooms
     def direct_message(self, data, client_socket):
         match = re.match(r"^/direct\s(\w+)\s(.*)", data)
         user = self.client_users[client_socket]
@@ -110,24 +118,43 @@ class Server:
             else:
                 message.send_msg(message.NORMAL, "User {} is not online\n".format(target), client_socket)
 
+    # Given a user's name, returns their socket for direct communication
     def find_socket_by_name(self, name):
         for chat in self.chatrooms:
             match = self.chatrooms[chat].contains_user(name)
             if match:
                 return match.sock
 
+    # Parses a string to find a users command to execute
     def parse_command(self, data, client_socket):
         match = re.match(r"^/(\w+)", data)
         if match:
             command = match.group(1)
             self.exec_command(command, client_socket)
 
+    # Executes a users command if it exists
     def exec_command(self, command, client_socket):
         if command == 'uptime':
             up = time.strftime("%H:%M:%S", time.gmtime(self.uptime()))
             message.send_msg(message.COMMAND, "Server uptime is {} seconds\n".format(up), client_socket)
         elif command == 'listrooms':
             message.send_msg(message.COMMAND, "Chatrooms available: {}\n".format(self.list_chatrooms()), client_socket)
+
+    # Registers a new user into our database
+    def register_user(self, data, client_socket):
+        username = data.split(" ")[0]
+        match = False
+        with open("users.txt", "r+a") as f:
+            for line in f:
+                user, _ = line.strip().split(":")
+                if username.strip() == user:
+                    match = True
+                    message.send_msg(message.REJECT, "Username already registered\n", client_socket)
+                    break
+            if not match:
+                f.write("\n")
+                f.write(data)
+                message.send_msg(message.OK, "\n", client_socket)
 
     # Handles messages passed to the server and takes appropriate action
     def handle_message(self, client_socket):
@@ -148,10 +175,14 @@ class Server:
             self.direct_message(data, client_socket)
         elif msg_type == message.COMMAND:
             self.parse_command(data, client_socket)
+        elif msg_type == message.REGISTER:
+            self.register_user(data, client_socket)
 
+    # Returns the server uptime
     def uptime(self):
         return time.time() - self.start_time
 
+    # Returns a string list of chatrooms in the format name(num of users online)
     def list_chatrooms(self):
         temp = []
         for chat in self.chatrooms.keys():
@@ -159,6 +190,7 @@ class Server:
             temp.append("{}({})".format(chat, num_users))
         return ", ".join(temp)
 
+    # Main loop
     def run(self):
         self.chatrooms['default'] = chatroom.Chatroom('default')
         while True:

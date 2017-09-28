@@ -83,7 +83,6 @@ class Server:
             message.send_msg(message.REJECT, "Couldn't authenticate user {}\n".format(user), client_socket)
             self.log_message("SERVER", "Failed login for user {}".format(user))
 
-
     # Joins a user to a chatroom. Creates chatroom if doesn't exist and deletes if empty.
     def join_chatroom(self, data, client_socket):
         match = re.match(r"^/join\s(\w+)", data)
@@ -113,6 +112,7 @@ class Server:
             msg = match.group(2)
             out_message = "{} <direct>: {}".format(user.name, msg)
             send_to = self.find_socket_by_name(target)
+            self.log_message("CLIENT", "{} to {} <direct>: {}".format(user.name, target, msg))
             if send_to:
                 message.send_msg(message.DIRECT, out_message + "\n", send_to)
             else:
@@ -127,18 +127,26 @@ class Server:
 
     # Parses a string to find a users command to execute
     def parse_command(self, data, client_socket):
-        match = re.match(r"^/(\w+)", data)
+        match = re.match(r"^/(\w+)\s?(.*)", data)
         if match:
-            command = match.group(1)
-            self.exec_command(command, client_socket)
+            self.exec_command(match.group(1), match.group(2), client_socket)
 
     # Executes a users command if it exists
-    def exec_command(self, command, client_socket):
+    def exec_command(self, command, args, client_socket):
         if command == 'uptime':
             up = time.strftime("%H:%M:%S", time.gmtime(self.uptime()))
             message.send_msg(message.COMMAND, "Server uptime is {} seconds\n".format(up), client_socket)
-        elif command == 'listrooms':
+        elif command == 'rooms':
             message.send_msg(message.COMMAND, "Chatrooms available: {}\n".format(self.list_chatrooms()), client_socket)
+        elif command == 'users':
+            if args:
+                d_parse = re.search(r"^(\w+)", args)
+                if d_parse:
+                    message.send_msg(message.COMMAND, "Users online in #{}: {}\n".format(args, self.list_users_in_room(args)), client_socket)
+            else:
+                message.send_msg(message.COMMAND, "Users online: {}\n".format(self.list_users()), client_socket)
+        elif command == 'help':
+            message.send_msg(message.COMMAND, "Server commands: \n{}\n".format(self.build_help()), client_socket)
 
     # Registers a new user into our database
     def register_user(self, data, client_socket):
@@ -154,6 +162,7 @@ class Server:
             if not match:
                 f.write("\n")
                 f.write(data)
+                self.log_message("SERVER", "User {} registered to server".format(username))
                 message.send_msg(message.OK, "\n", client_socket)
 
     # Handles messages passed to the server and takes appropriate action
@@ -190,6 +199,29 @@ class Server:
             temp.append("{}({})".format(chat, num_users))
         return ", ".join(temp)
 
+    def list_users(self):
+        online = []
+        for user in self.client_users.values():
+            online.append(user.name)
+        return ", ".join(online)
+
+    def list_users_in_room(self, room):
+        online = []
+        if room in self.chatrooms.keys():
+            for user in self.chatrooms[room].users:
+                online.append(user.name)
+            return ", ".join(online)
+        else:
+            return "Chatroom doesn't exist"
+
+    def build_help(self):
+        cmd_str = []
+        cmd_str.append("/uptime - Show server uptime")
+        cmd_str.append("/rooms - List available chatrooms and show how many users in each")
+        cmd_str.append("/users - List all users online")
+        cmd_str.append("/users <chatroom> - List all users in chatroom")
+        cmd_str.append("/help - This help dialog")
+        return "\n".join(cmd_str)
     # Main loop
     def run(self):
         self.chatrooms['default'] = chatroom.Chatroom('default')

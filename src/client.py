@@ -99,7 +99,6 @@ class Client:
             self.pretty_print_message("Lost connection to the server")
             sys.exit(0)
 
-
     def draw_ui(self, title):
         os.system("clear")
         print("Chatterbox")

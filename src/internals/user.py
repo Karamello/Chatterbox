@@ -7,5 +7,6 @@ class User:
         self.is_admin = is_admin
         self.sock = sock
 
-
+    def __str__(self):
+        return self.name
 

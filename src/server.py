@@ -3,7 +3,7 @@ import socket
 import time
 import re
 import ssl
-from internals import message, user as u, chatroom
+from internals import message, user as u, chatroom, commander
 
 
 class Server:
@@ -16,7 +16,7 @@ class Server:
         self.client_users = {}
         self.init_logging()
         self.chatrooms = {}
-        self.start_time = time.time()
+        self.commander = commander.Commander(self)
 
     # Initialises server socket
     def init_socket(self, host, port):
@@ -67,6 +67,7 @@ class Server:
                 if username == user and pwd == password:
                     return True
 
+    # Checks to see whether a user has admin privileges
     def user_is_admin(self, username):
         with open('admins.txt', 'r') as f:
             for line in f:
@@ -137,27 +138,7 @@ class Server:
     def parse_command(self, data, client_socket):
         match = re.match(r"^/(\w+)\s?(.*)", data)
         if match:
-            self.exec_command(match.group(1), match.group(2), client_socket)
-
-    # Executes a users command if it exists
-    def exec_command(self, command, args, client_socket):
-        if command == 'uptime':
-            up = time.strftime("%H:%M:%S", time.gmtime(self.uptime()))
-            message.send_msg(message.COMMAND, "Server uptime is {} seconds\n".format(up), client_socket)
-        elif command == 'rooms':
-            message.send_msg(message.COMMAND, "Chatrooms available: {}\n".format(self.list_chatrooms()), client_socket)
-        elif command == 'users':
-            if args:
-                d_parse = re.search(r"^(\w+)", args)
-                if d_parse:
-                    message.send_msg(message.COMMAND, "Users online in #{}: {}\n".format(args, self.list_users_in_room(args)), client_socket)
-            else:
-                message.send_msg(message.COMMAND, "Users online: {}\n".format(self.list_users()), client_socket)
-        elif command == 'help':
-            user = self.client_users[client_socket]
-            message.send_msg(message.COMMAND, "Server commands: \n{}\n".format(self.build_help(user.is_admin)), client_socket)
-        elif command == 'kick':
-            self.kick_user(client_socket, args)
+            self.commander.exec_command(match.group(1), match.group(2), client_socket)
 
     # Registers a new user into our database
     def register_user(self, data, client_socket):
@@ -198,64 +179,28 @@ class Server:
         elif msg_type == message.REGISTER:
             self.register_user(data, client_socket)
 
-    # Returns the server uptime
-    def uptime(self):
-        return time.time() - self.start_time
-
-    # Returns a string list of chatrooms in the format name(num of users online)
-    def list_chatrooms(self):
-        temp = []
-        for chat in self.chatrooms.keys():
-            num_users = self.chatrooms[chat].users_in_chat()
-            temp.append("{}({})".format(chat, num_users))
-        return ", ".join(temp)
-
-    def list_users(self):
-        online = []
-        for user in self.client_users.values():
-            online.append(user.name)
-        return ", ".join(online)
-
-    def list_users_in_room(self, room):
-        online = []
-        if room in self.chatrooms.keys():
-            for user in self.chatrooms[room].users:
-                online.append(user.name)
-            return ", ".join(online)
-        else:
-            return "Chatroom doesn't exist"
-
-    def build_help(self, admin=False):
-        cmd_str = ["/uptime - Show server uptime"]
-        cmd_str.append("/rooms - List available chatrooms and show how many users in each")
-        cmd_str.append("/users - List all users online")
-        cmd_str.append("/users <chatroom> - List all users in chatroom")
-        cmd_str.append("/quit - Quit the program")
-        cmd_str.append("/help - This help dialog")
-        if admin:
-            cmd_str.append("--- ADMIN COMMANDS ---")
-            cmd_str.append("/kick room <user> - Kicks user from room back to default")
-            cmd_str.append("/kick server <user> - Kicks user from server")
-        return "\n".join(cmd_str)
-
+    # Kicks a user from a chat channel or server
     def kick_user(self, client_socket, args):
         user = self.client_users[client_socket]
         if user.is_admin:
             d_parse = re.match(r"^(\w+)\s(\w+)", args)
             if d_parse:
                 target = self.chatrooms[user.chatroom].get_user(d_parse.group(2))
-                if d_parse.group(1) == 'server':
-                    message.send_msg(message.NORMAL, "You have been kicked from the server\n", target.sock)
-                    self.close_connection(target.sock)
-                    self.chatrooms[user.chatroom].broadcast("User {} was kicked from the server".format(target))
-                    self.log_message("SERVER", "User {} was kicked from the server by {}".format(target, user))
-                else:
-                    message.send_msg(message.NORMAL, "You have been kicked from the room\n", target.sock)
-                    self.chatrooms['default'].add_user(target)
-                    self.chatrooms[user.chatroom].remove_user(target, True)
-                    self.log_message("SERVER", "User {} was kicked from the room by {}".format(target, user))
+                try:
+                    if d_parse.group(1) == 'server':
+                        message.send_msg(message.NORMAL, "You have been kicked from the server\n", target.sock)
+                        self.close_connection(target.sock)
+                        self.chatrooms[user.chatroom].broadcast("User {} was kicked from the server".format(target))
+                        self.log_message("SERVER", "User {} was kicked from the server by {}".format(target, user))
+                    else:
+                        message.send_msg(message.NORMAL, "You have been kicked from the room\n", target.sock)
+                        self.chatrooms['default'].add_user(target)
+                        self.chatrooms[user.chatroom].remove_user(target, True)
+                        self.log_message("SERVER", "User {} was kicked from the room by {}".format(target, user))
+                except AttributeError:
+                    message.send_msg(message.NORMAL, "You need to enter the same room as the user to kick\n", client_socket)
 
-    # Main loop
+    # Main loop that handles socket input
     def run(self):
         self.chatrooms['default'] = chatroom.Chatroom('default')
         while True:

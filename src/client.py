@@ -30,6 +30,7 @@ class Client:
             sys.exit()
         return sslsock
 
+    # Handles logging in of user
     def verify_login(self, text=""):
         self.draw_ui(text if text else "Login to Chatterbox")
         self.username = raw_input("Enter username: ").strip() + "\n"
@@ -41,10 +42,12 @@ class Client:
         if res == message.REJECT:
             self.verify_login(text)
 
+    # Timestamps a messages output
     def pretty_print_message(self, message):
         msg_time = time.strftime("%H:%M:%S")
         print msg_time, message
 
+    # Parses a users input to decide the message type
     def parse_input(self, user_input):
         direct_match = re.match(r"^/direct\s(\w+)\s(.*)", user_input)
         if re.search(r"^/join", user_input):
@@ -61,6 +64,9 @@ class Client:
             message.send_msg(message.NORMAL, user_input, self.sock)
             self.pretty_print_message("You: " + user_input.strip())
 
+    # Handles messages received by the server
+    # Note: message types are separated off for potential special formatting, though currently
+    # not implemented
     def handle_message(self):
         msg_type, text = message.receive_msg_from(self.sock)
         if msg_type == message.DIRECT:
@@ -70,6 +76,7 @@ class Client:
         elif msg_type == message.COMMAND:
             self.pretty_print_message(text)
 
+    # Handles registering a user with the server
     def register(self, err=""):
         if err:
             self.draw_ui(err)
@@ -91,6 +98,7 @@ class Client:
         else:
             self.verify_login("Registration successful. Login to your new account")
 
+    # Draws the initial screen and prompts user to login/register
     def startup(self):
         self.draw_ui("Welcome to Chatterbox")
         print("Would you like to register or sign in?")
@@ -104,6 +112,7 @@ class Client:
             self.pretty_print_message("Lost connection to the server")
             sys.exit(0)
 
+    # Draws basic structured UI with a given title
     def draw_ui(self, title):
         os.system("clear")
         print("Chatterbox")
@@ -111,6 +120,7 @@ class Client:
         print(title)
         print("-" * 30)
 
+    # Main loop to handle stdin and socket input
     def run(self):
         self.startup()
         self.draw_ui("Welcome to Chatterbox, {}!".format(self.username.strip()))
